@@ -4,8 +4,9 @@ bin/
 ComfyUI/
 models/
 
-# 运行期状态
-state/
+# 运行期状态：只保留自带的示例角色提示词
+state/*
+!state/character-prompts.json
 *.log
 *.part
 
@@ -15,7 +16,4 @@ desktop.ini
 .vscode/
 .idea/
 
-# �ֿ��ڸ����Ĳ��� LoRA ��Ҫ���
-!loras/
-!loras/*.safetensors
-
+# 注：loras/ 随仓库提供测试 LoRA，不忽略
