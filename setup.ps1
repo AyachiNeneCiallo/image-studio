@@ -2,10 +2,14 @@
 # 作用：把运行时和模型下载到当前目录，之后双击 start.bat 即可使用。
 # 用法：powershell -ExecutionPolicy Bypass -File setup.ps1
 param(
-  [switch]$Force
+  [switch]$Force,
+  [switch]$CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
+# 让 Windows PowerShell 5.1 正确输出/读取 UTF-8（否则中文会乱码，JSON 解析也会失败）
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
@@ -13,7 +17,18 @@ function Write-Step($msg) { Write-Host "`n== $msg ==" -ForegroundColor Cyan }
 function Write-Ok($msg) { Write-Host "   OK  $msg" -ForegroundColor Green }
 function Write-Warn2($msg) { Write-Host "   !   $msg" -ForegroundColor Yellow }
 
-$sources = Get-Content (Join-Path $root 'sources.json') -Raw | ConvertFrom-Json
+# 关键：必须显式 -Encoding UTF8。PS 5.1 默认把无 BOM 的 UTF-8 当 ANSI 读，
+# 中文会把 JSON 的引号吃掉，ConvertFrom-Json 直接抛 ArgumentException。
+$raw = Get-Content (Join-Path $root 'sources.json') -Raw -Encoding UTF8
+$sources = ($raw -replace "^[\uFEFF]", '') | ConvertFrom-Json
+
+if ($CheckOnly) {
+  Write-Step '配置检查（-CheckOnly）'
+  Write-Ok ("sources.json 解析成功：{0} 个模型" -f $sources.models.Count)
+  foreach ($m in $sources.models) { Write-Host ("   - {0}  {1} GB" -f $m.name, $m.sizeGB) }
+  Write-Ok ("LoRA：{0}" -f ($(if ($sources.lora.local) { $sources.lora.local } else { '未配置' })))
+  return
+}
 
 function Download-File($url, $dest) {
   $dir = Split-Path -Parent $dest
