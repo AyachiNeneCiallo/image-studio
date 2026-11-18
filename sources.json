@@ -1,15 +1,9 @@
 {
-  "githubMirrors": [
-    "https://ghfast.top/",
-    "https://gh-proxy.com/",
-    "https://ghproxy.net/"
-  ],
   "node": {
     "urls": [
-      "https://npmmirror.com/mirrors/node/v24.22.0/node-v24.22.0-win-x64.zip",
       "https://nodejs.org/dist/v24.22.0/node-v24.22.0-win-x64.zip"
     ],
-    "note": "优先 npmmirror 国内镜像，失败回退官方"
+    "note": "便携版 Node.js，解压到 node/ 根目录"
   },
   "sevenZip": {
     "local": "tools/7zr.exe",
@@ -24,7 +18,7 @@
     "fallbackUrls": [
       "https://github.com/comfyanonymous/ComfyUI/releases/download/v0.45.0/ComfyUI_windows_portable_nvidia.7z"
     ],
-    "note": "GitHub 资产，走 githubMirrors 国内镜像加速"
+    "note": "官方便携包，约 2 GB"
   },
   "llama": {
     "repo": "ggml-org/llama.cpp",
@@ -32,7 +26,7 @@
     "fallbackUrls": [
       "https://github.com/ggml-org/llama.cpp/releases/download/b12503/llama-b12503-bin-win-cuda-12.4-x64.zip"
     ],
-    "note": "GitHub 资产，走 githubMirrors 国内镜像加速"
+    "note": "llama.cpp Windows CUDA 构建（无 N 卡也能用 CPU 跑）"
   },
   "models": [
     {
@@ -43,7 +37,7 @@
     },
     {
       "name": "NoobAI XL v-pred 1.0",
-      "url": "https://hf-mirror.com/Laxhar/noobai-XL-vpred-1.0/resolve/main/NoobAI-XL-Vpred-v1.0.safetensors",
+      "url": "https://hf-mirror.com/Laxhar/noobai-XL-Vpred-1.0/resolve/main/NoobAI-XL-Vpred-v1.0.safetensors",
       "dest": "ComfyUI/ComfyUI/models/checkpoints/NoobAI-XL-Vpred-v1.0.safetensors",
       "sizeGB": 6.62
     },
