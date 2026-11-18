@@ -44,26 +44,47 @@ function Move-Into($srcDir, $destDir) {
 }
 
 
-function Download-File($url, $dest) {
+# 把候选 URL 展开：github.com 链接优先走国内镜像，最后才是官方地址
+function Get-UrlCandidates($urls) {
+  $out = @()
+  foreach ($u in @($urls)) {
+    if (-not $u) { continue }
+    if ($u -match '^https://github\.com/' -and $sources.githubMirrors) {
+      foreach ($m in $sources.githubMirrors) { $out += "$m$u" }
+    }
+    $out += $u
+  }
+  return $out
+}
+
+function Download-File($urls, $dest) {
   $dir = Split-Path -Parent $dest
   if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
   if ((Test-Path $dest) -and -not $Force) {
     Write-Ok "已存在，跳过：$dest"
     return
   }
-  Write-Host "   下载 $url"
+  $cands = @($urls) | Where-Object { $_ }
+  if ($cands.Count -eq 0) { throw "没有可用的下载地址：$dest" }
   $tmp = "$dest.part"
-  # -C - 断点续传：2 GB 的 ComfyUI 在国内直连很慢，中断后重跑能接着下
-  $curlArgs = @('-L', '--fail', '--retry', '5', '--retry-delay', '3', '-C', '-', '-o', $tmp, '--progress-bar', $url)
   $proxy = $env:HTTPS_PROXY; if (-not $proxy) { $proxy = $env:HTTP_PROXY }
-  if ($proxy) { $curlArgs = @('-x', $proxy) + $curlArgs }
-  & curl.exe @curlArgs
-  if ($LASTEXITCODE -ne 0) {
-    throw "下载失败（$url）。已下载部分保存在 $tmp，重跑本脚本会续传；若太慢请开启代理后设置 `$env:HTTPS_PROXY 再运行"
+  $last = ''
+  foreach ($u in $cands) {
+    Write-Host "   下载 $u"
+    # -C - 断点续传：2 GB 的 ComfyUI 在国内直连很慢，中断后重跑/换源都能接着下
+    $curlArgs = @('-L', '--fail', '--retry', '3', '--retry-delay', '2', '-C', '-', '-o', $tmp, '--progress-bar', $u)
+    if ($proxy) { $curlArgs = @('-x', $proxy) + $curlArgs }
+    & curl.exe @curlArgs
+    if ($LASTEXITCODE -eq 0) {
+      Move-Item $tmp $dest -Force
+      $mb = [math]::Round((Get-Item $dest).Length / 1MB, 1)
+      Write-Ok "完成（$mb MB）：$dest"
+      return
+    }
+    $last = $u
+    Write-Warn2 "该源失败（exit=$LASTEXITCODE），换下一个源"
   }
-  Move-Item $tmp $dest -Force
-  $mb = [math]::Round((Get-Item $dest).Length / 1MB, 1)
-  Write-Ok "完成（$mb MB）：$dest"
+  throw "所有下载源都失败：$dest`n最后一个源：$last`n已下载部分保存在 $tmp，重跑会续传；若整片都慢请开代理后设置 `$env:HTTPS_PROXY"
 }
 
 function Get-ReleaseAsset($repo, $pattern) {
@@ -109,6 +130,13 @@ if ($CheckOnly) {
     $b = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
     Write-Ok ("ComfyUI 资产：{0}" -f ($(if ($b) { $b.name } else { '未找到' })))
   } catch { Write-Warn2 ("GitHub API 不可用：" + $_.Exception.Message) }
+  Write-Host "`n   下载源优先级："
+  Write-Host ("   Node     : {0}" -f (Get-UrlCandidates $sources.node.urls)[0])
+  $lc = Get-UrlCandidates @($sources.llama.fallbackUrls)
+  Write-Host ("   llama.cpp: {0}" -f $lc[0])
+  $cc = Get-UrlCandidates @($sources.comfyui.fallbackUrls)
+  Write-Host ("   ComfyUI  : {0}" -f $cc[0])
+  Write-Host ("   7zr      : {0}" -f $(if (Test-Path $sources.sevenZip.local) { "仓库自带 $($sources.sevenZip.local)" } else { '需下载' }))
   return
 }
 
@@ -118,7 +146,7 @@ if (Test-Path 'node\node.exe') {
   Write-Ok 'node\node.exe 已存在，跳过'
 } else {
   $zip = 'node\node.zip'
-  if (Test-Path $zip) { Write-Ok "已有安装包，跳过下载：$zip" } else { Download-File $sources.node.url $zip }
+  if (Test-Path $zip) { Write-Ok "已有安装包，跳过下载：$zip" } else { Download-File (Get-UrlCandidates $sources.node.urls) $zip }
   $tmp = 'node\_unzip'
   if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
   Expand-Archive $zip -DestinationPath $tmp -Force
@@ -137,9 +165,13 @@ if (Test-Path 'bin\llama-server.exe') {
 } else {
   $zip = 'bin\_llama.zip'
   if (-not (Test-Path $zip)) {
-    $asset = Get-ReleaseAsset $sources.llama.repo $sources.llama.assetPattern
-    if (-not $asset) { throw '找不到 llama.cpp 的 Windows 构建，请手动下载后放到 bin/' }
-    Download-File $asset.browser_download_url $zip
+    $cands = @()
+    try {
+      $asset = Get-ReleaseAsset $sources.llama.repo $sources.llama.assetPattern
+      if ($asset) { $cands += $asset.browser_download_url }
+    } catch { Write-Warn2 "GitHub API 不可用，直接用固定地址：$($_.Exception.Message)" }
+    $cands += @($sources.llama.fallbackUrls)
+    Download-File (Get-UrlCandidates $cands) $zip
   } else { Write-Ok "已有安装包，跳过下载：$zip" }
   if (Test-Path 'bin\_unzip') { Remove-Item 'bin\_unzip' -Recurse -Force }
   Expand-Archive $zip -DestinationPath 'bin\_unzip' -Force
@@ -178,12 +210,23 @@ if ($mainOk -and $pyOk) {
   if ($mainOk -and -not $pyOk) { Write-Warn2 'ComfyUI 代码在，但缺 python_embeded，继续安装' }
   if ($pyOk -and -not $mainOk) { Write-Warn2 'python_embeded 在，但缺 ComfyUI\main.py，继续安装' }
   $sevenZip = 'ComfyUI\_7zr.exe'
-  if (Test-Path $sevenZip) { Write-Ok '已有 7zr.exe，跳过下载' } else { Download-File $sources.sevenZip.url $sevenZip }
+  if (Test-Path $sources.sevenZip.local) {
+    Copy-Item $sources.sevenZip.local $sevenZip -Force
+    Write-Ok '使用仓库自带的 7zr.exe'
+  } elseif (Test-Path $sevenZip) {
+    Write-Ok '已有 7zr.exe，跳过下载'
+  } else {
+    Download-File (Get-UrlCandidates $sources.sevenZip.urls) $sevenZip
+  }
   $arch = 'ComfyUI\_portable.7z'
   if (-not (Test-Path $arch)) {
-    $asset = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
-    if (-not $asset) { throw '找不到 ComfyUI 便携包，请手动解压到 ComfyUI/' }
-    Download-File $asset.browser_download_url $arch
+    $cands = @()
+    try {
+      $asset = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
+      if ($asset) { $cands += $asset.browser_download_url }
+    } catch { Write-Warn2 "GitHub API 不可用，直接用固定地址：$($_.Exception.Message)" }
+    $cands += @($sources.comfyui.fallbackUrls)
+    Download-File (Get-UrlCandidates $cands) $arch
   } else { Write-Ok "已有安装包，跳过下载（约 2 GB）：$arch" }
   Write-Host '   解压中（需要几分钟）…'
   $tmp = 'ComfyUI\_extract'
@@ -231,7 +274,7 @@ foreach ($m in $sources.models) {
     continue
   }
   Write-Host "   -> $($m.name)（约 $($m.sizeGB) GB）"
-  Download-File $m.url $dest
+  Download-File (Get-UrlCandidates @($m.url)) $dest
 }
 
 # ── 5. LoRA（随仓库自带测试 LoRA）────────────────────────
@@ -246,7 +289,7 @@ if ($loraDest -and (Test-Path $loraDest)) {
   Copy-Item $loraLocal $loraDest -Force
   Write-Ok "已复制测试 LoRA：$loraDest"
 } elseif ($sources.lora.url) {
-  Download-File $sources.lora.url $loraDest
+  Download-File (Get-UrlCandidates @($sources.lora.url)) $loraDest
 } else {
   Write-Warn2 '没有可用的 LoRA。把 .safetensors 放进 ComfyUI\ComfyUI\models\loras 即可（界面「刷新列表」）'
 }
