@@ -1,4 +1,4 @@
-# Image Studio · 本地生图工作室
+﻿# Image Studio · 本地生图工作室
 
 把「中文描述 → Danbooru 标签 → ComfyUI 出图」这条链路做成一个**脱离 QQ / 聊天机器人、带网页界面、解压即用**的本地工具。
 
@@ -10,11 +10,11 @@
 - 点击生成结果可放大预览
 - 服务器端生成图**自动清理**，不会把磁盘塞满
 
-> 下载源已优先使用国内镜像：Node 走 npmmirror、ComfyUI/llama.cpp 走 GitHub 镜像（ghfast/gh-proxy/ghproxy）、模型走 hf-mirror；全部失败会自动回退官方地址。
-> 	ools/7zr.exe 已内置，不需要再下 7-Zip。
-
-> 下载慢或断线：先设置代理再运行 —— ='http://127.0.0.1:7890'；中断后重跑会**断点续传**。
-> 官方便携包自带的 ComfyUI_windows_portable\ 根目录、或手动解压多一层，setup.ps1 都会自动识别并搬到标准位置。
+> `tools/7zr.exe` 已内置，不需要再下 7-Zip。
+>
+> **下载慢或断线**：GitHub 在国内直连常常只有几十 KB/s，建议**开启代理**，或改用**手机流量热点**；
+> 中断后重跑会**断点续传**（不要删 `.part` 文件）。
+> 官方便携包自带的 `ComfyUI_windows_portable\` 根目录，或手动解压多一层，`setup.ps1` 都会自动识别并搬到标准位置。
 
 > 本仓库**只包含代码**，不会分发任何模型权重或运行时。首次运行 `start.bat` 会调用 `setup.ps1`，
 > 从官方 / HuggingFace 镜像下载 ComfyUI、llama.cpp、底模与翻译模型（约 18 GB）。
