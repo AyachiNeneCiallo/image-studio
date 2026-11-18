@@ -1,6 +1,6 @@
 # Image Studio · 本地生图工作室
 
-把「中文描述 → Danbooru 标签 → ComfyUI 出图」这条链路做成一个**脱离 QQ / 聊天机器人、带网页界面、解压即用**的本地工具。
+把「中文描述 → Danbooru 标签 → ComfyUI 出图」这条链路做成一个**带网页界面、解压即用**的本地工具。
 
 - 中文描述自动翻译成 Danbooru 标签（本地 Qwen3-8B **Heretic 去审查版**，离线；翻译成人向标签不会被拒）
 - ComfyUI 出图，支持高清修复、LoRA、多底模（WAI / NoobAI）
