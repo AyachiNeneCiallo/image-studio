@@ -14,7 +14,7 @@
   },
   "llama": {
     "repo": "ggml-org/llama.cpp",
-    "assetPattern": "bin-win-cuda.*x64\\.zip$",
+    "assetPattern": "^llama-.*bin-win-cuda.*x64\\.zip$",
     "note": "llama.cpp Windows CUDA 构建（无 N 卡也能用 CPU 跑）"
   },
   "models": [
