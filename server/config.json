@@ -35,7 +35,7 @@
     },
     "llm": {
       "exe": "bin/llama-server.exe",
-      "modelPath": "models/llm/Qwen3-8B-Q5_K_M.gguf",
+      "modelPath": "models/llm/Qwen3-8B-heretic.Q5_K_M.gguf",
       "cudaPath": "",
       "port": 8081,
       "ctxSize": 8192,

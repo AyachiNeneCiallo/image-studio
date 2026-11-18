@@ -31,10 +31,11 @@
       "sizeGB": 6.62
     },
     {
-      "name": "Qwen3-8B Q5_K_M（翻译用）",
-      "url": "https://hf-mirror.com/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q5_K_M.gguf",
-      "dest": "models/llm/Qwen3-8B-Q5_K_M.gguf",
-      "sizeGB": 5.45
+      "name": "Qwen3-8B-heretic Q5_K_M（去审查版，翻译用）",
+      "url": "https://hf-mirror.com/mradermacher/Qwen3-8B-heretic-GGUF/resolve/main/Qwen3-8B-heretic.Q5_K_M.gguf",
+      "dest": "models/llm/Qwen3-8B-heretic.Q5_K_M.gguf",
+      "sizeGB": 5.45,
+      "note": "社区去审查微调（heretic），翻译 NSFW 标签不会被拒"
     }
   ],
   "lora": {

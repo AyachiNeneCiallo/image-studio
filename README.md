@@ -2,7 +2,7 @@
 
 把「中文描述 → Danbooru 标签 → ComfyUI 出图」这条链路做成一个**脱离 QQ / 聊天机器人、带网页界面、解压即用**的本地工具。
 
-- 中文描述自动翻译成 Danbooru 标签（本地 Qwen3-8B，离线）
+- 中文描述自动翻译成 Danbooru 标签（本地 Qwen3-8B **Heretic 去审查版**，离线；翻译成人向标签不会被拒）
 - ComfyUI 出图，支持高清修复、LoRA、多底模（WAI / NoobAI）
 - 右侧角色提示词面板：给 LoRA 绑定角色提示词 TXT，切 LoRA 自动显示
 - 右下角小助手：8 个功能帮助按钮
@@ -94,7 +94,7 @@ image-studio/
 - ComfyUI：GPL-3.0（由 setup 从官方发布页下载）
 - llama.cpp：MIT
 - Node.js：MIT / 二进制内含 OpenSSL 等许可
-- WAI Illustrious / NoobAI / Qwen3：各自模型许可，**由 setup 从 HuggingFace 镜像获取，本仓库不再分发**
+- WAI Illustrious / NoobAI / Qwen3-8B-Heretic：各自模型许可，**由 setup 从 HuggingFace 镜像获取，本仓库不再分发**
 - LoRA：请自行确认作者许可
 
 本仓库只提供下载脚本与代码，模型文件的许可与使用限制请遵守各自发布页。仅供个人学习与测试使用。

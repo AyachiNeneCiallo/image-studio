@@ -11,7 +11,7 @@
 | 7-Zip (7zr.exe) | 7-zip.org | LGPL / 商业许可混合 | 仅用于解压 |
 | WAI Illustrious SDXL v170 | LyliaEngine/waiIllustriousSDXL_v170 (HF) | 继承 SDXL 系许可（OpenRAIL++ / Stability 社区许可） | 模型许可由作者定义 |
 | NoobAI XL v-pred 1.0 | Laxhar/noobai-XL-Vpred-1.0 (HF) | 同上，另有作者附加条款 | 模型许可由作者定义 |
-| Qwen3-8B-GGUF | Qwen/Qwen3-8B-GGUF (HF) | Apache-2.0（以模型卡为准） | 保留 NOTICE / 修改说明 |
+| Qwen3-8B-Heretic Q5_K_M | mradermacher/Qwen3-8B-heretic-GGUF (HF) | 继承 Qwen3（Apache-2.0）+ 社区微调条款 | **去审查微调**，由用户自行判断使用场景 |
 | Danbooru 中英词典 | 社区整理 `hf_general.csv` | 见原始数据集许可 | 仅用于术语提示 |
 
 ## 说明
