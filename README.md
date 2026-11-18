@@ -5,6 +5,7 @@
 - 中文描述自动翻译成 Danbooru 标签（本地 Qwen3-8B **Heretic 去审查版**，离线；翻译成人向标签不会被拒）
 - ComfyUI 出图，支持高清修复、LoRA、多底模（WAI / NoobAI）
 - 右侧角色提示词面板：给 LoRA 绑定角色提示词 TXT，切 LoRA 自动显示
+- 仓库内附带 1 个**测试 LoRA**（Kohana_1_nai-000026，作者自训练，96.8 MB），开箱即可试
 - 右下角小助手：8 个功能帮助按钮
 - 点击生成结果可放大预览
 - 服务器端生成图**自动清理**，不会把磁盘塞满
@@ -55,6 +56,7 @@ image-studio/
 ├─ node/                     # setup 下载的便携 Node
 ├─ bin/                      # setup 下载的 llama-server
 ├─ ComfyUI/                  # setup 下载的 ComfyUI 便携版
+├─ loras/                    # 随仓库附带的测试 LoRA
 ├─ models/llm/               # 翻译模型 gguf
 └─ state/                    # 运行期：缓存、角色提示词、日志
 ```
@@ -95,7 +97,7 @@ image-studio/
 - llama.cpp：MIT
 - Node.js：MIT / 二进制内含 OpenSSL 等许可
 - WAI Illustrious / NoobAI / Qwen3-8B-Heretic：各自模型许可，**由 setup 从 HuggingFace 镜像获取，本仓库不再分发**
-- LoRA：请自行确认作者许可
+- 测试 LoRA（Kohana_1_nai-000026）：作者自训练并随本仓库提供；其它 LoRA 请自行确认作者许可
 
 本仓库只提供下载脚本与代码，模型文件的许可与使用限制请遵守各自发布页。仅供个人学习与测试使用。
 

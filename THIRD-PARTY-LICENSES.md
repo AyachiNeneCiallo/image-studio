@@ -12,6 +12,7 @@
 | WAI Illustrious SDXL v170 | LyliaEngine/waiIllustriousSDXL_v170 (HF) | 继承 SDXL 系许可（OpenRAIL++ / Stability 社区许可） | 模型许可由作者定义 |
 | NoobAI XL v-pred 1.0 | Laxhar/noobai-XL-Vpred-1.0 (HF) | 同上，另有作者附加条款 | 模型许可由作者定义 |
 | Qwen3-8B-Heretic Q5_K_M | mradermacher/Qwen3-8B-heretic-GGUF (HF) | 继承 Qwen3（Apache-2.0）+ 社区微调条款 | **去审查微调**，由用户自行判断使用场景 |
+| Kohana_1_nai-000026.safetensors | 本仓库 loras/ | 作者自训练，随仓库提供 | 仅作测试用途 |
 | Danbooru 中英词典 | 社区整理 `hf_general.csv` | 见原始数据集许可 | 仅用于术语提示 |
 
 ## 说明

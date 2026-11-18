@@ -39,8 +39,9 @@
     }
   ],
   "lora": {
+    "local": "loras/Kohana_1_nai-000026.safetensors",
     "url": "",
     "dest": "ComfyUI/ComfyUI/models/loras/Kohana_1_nai-000026.safetensors",
-    "note": "留空则跳过；把 LoRA 自行放进 models/loras 即可"
+    "note": "随仓库提供的测试 LoRA（作者自训练）"
   }
 }

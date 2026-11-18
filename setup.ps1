@@ -108,13 +108,21 @@ foreach ($m in $sources.models) {
   Download-File $m.url $dest
 }
 
-# ── 5. LoRA（可选）───────────────────────────────────────
-Write-Step '5/5 LoRA（可选）'
-if ($sources.lora.url) {
-  $dest = $sources.lora.dest -replace '/', '\'
-  if (Test-Path $dest) { Write-Ok 'LoRA 已存在' } else { Download-File $sources.lora.url $dest }
+# ── 5. LoRA（随仓库自带测试 LoRA）────────────────────────
+Write-Step '5/5 LoRA'
+$loraDest = $sources.lora.dest -replace '/', '\'
+$loraLocal = $sources.lora.local -replace '/', '\'
+if ($loraDest -and (Test-Path $loraDest)) {
+  Write-Ok 'LoRA 已存在'
+} elseif ($loraLocal -and (Test-Path $loraLocal)) {
+  $loraDir2 = Split-Path -Parent $loraDest
+  if ($loraDir2 -and -not (Test-Path $loraDir2)) { New-Item -ItemType Directory -Path $loraDir2 -Force | Out-Null }
+  Copy-Item $loraLocal $loraDest -Force
+  Write-Ok "已复制测试 LoRA：$loraDest"
+} elseif ($sources.lora.url) {
+  Download-File $sources.lora.url $loraDest
 } else {
-  Write-Warn2 '未配置 LoRA 下载地址，跳过。把 .safetensors 放进 ComfyUI\ComfyUI\models\loras 即可（界面「刷新列表」）'
+  Write-Warn2 '没有可用的 LoRA。把 .safetensors 放进 ComfyUI\ComfyUI\models\loras 即可（界面「刷新列表」）'
 }
 
 Write-Host "`n全部完成。双击 start.bat 启动，浏览器会打开 http://127.0.0.1:34567" -ForegroundColor Green

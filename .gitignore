@@ -14,3 +14,8 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# 仓库内附带的测试 LoRA 需要入库
+!loras/
+!loras/*.safetensors
+
