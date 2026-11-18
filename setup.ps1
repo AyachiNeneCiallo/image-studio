@@ -190,14 +190,34 @@ if ($mainOk -and $pyOk) {
   if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
   & $sevenZip x $arch "-o$tmp" -y | Out-Null
   if ($LASTEXITCODE -ne 0) { throw '7z 解压失败（安装包可能损坏，删掉 ComfyUI\_portable.7z 重试）' }
-  foreach ($d in @('ComfyUI', 'python_embeded', 'update', 'advanced')) {
-    $from = Join-Path $tmp $d
-    if (Test-Path $from) { Copy-Item $from (Join-Path 'ComfyUI' $d) -Recurse -Force }
+
+  # 官方便携包可能多一层根目录（ComfyUI_windows_portable\），自动定位真正包含
+  # ComfyUI\main.py + python_embeded\python.exe 的那一层；找不到就按解压根目录处理
+  $portableRoot = $null
+  $found = Get-ChildItem $tmp -Directory -Recurse -ErrorAction SilentlyContinue | Where-Object {
+    (Test-Path (Join-Path $_.FullName 'ComfyUI\main.py')) -and
+    (Test-Path (Join-Path $_.FullName 'python_embeded\python.exe'))
+  } | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+  if ($found) {
+    $portableRoot = $found.FullName
+    if ($portableRoot -ne $tmp) { Write-Ok "识别到便携包根目录：$portableRoot" }
+  } else {
+    $portableRoot = $tmp
   }
-  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+
+  foreach ($d in @('ComfyUI', 'python_embeded', 'update', 'advanced')) {
+    $from = Join-Path $portableRoot $d
+    if (Test-Path $from) { Move-Into $from (Join-Path $root "ComfyUI\$d") }
+  }
+
   $mainOk2 = (Test-Path 'ComfyUI\ComfyUI\main.py') -or (Test-Path 'ComfyUI\main.py')
   $pyOk2 = (Test-Path 'ComfyUI\python_embeded\python.exe') -or (Test-Path 'ComfyUI\ComfyUI\python_embeded\python.exe')
-  if (-not ($mainOk2 -and $pyOk2)) { throw ('ComfyUI 解压后仍不完整，请检查 ComfyUI 目录：' + ((Get-ChildItem 'ComfyUI' | Select-Object -ExpandProperty Name) -join ', ')) }
+  if (-not ($mainOk2 -and $pyOk2)) {
+    $top = (Get-ChildItem $tmp -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ', '
+    $cui = (Get-ChildItem 'ComfyUI' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ', '
+    throw "ComfyUI 解压后仍不完整（保留下载包与解压目录，方便排查）。`n解压根内容：$top`nComfyUI 目录：$cui`n请把以上内容发给作者，或删除 ComfyUI\_extract 后重跑"
+  }
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item $arch, $sevenZip -Recurse -Force -ErrorAction SilentlyContinue
   Write-Ok 'ComfyUI 就位'
 }
