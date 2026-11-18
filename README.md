@@ -10,6 +10,9 @@
 - 点击生成结果可放大预览
 - 服务器端生成图**自动清理**，不会把磁盘塞满
 
+> 下载源已优先使用国内镜像：Node 走 npmmirror、ComfyUI/llama.cpp 走 GitHub 镜像（ghfast/gh-proxy/ghproxy）、模型走 hf-mirror；全部失败会自动回退官方地址。
+> 	ools/7zr.exe 已内置，不需要再下 7-Zip。
+
 > 下载慢或断线：先设置代理再运行 —— ='http://127.0.0.1:7890'；中断后重跑会**断点续传**。
 > 官方便携包自带的 ComfyUI_windows_portable\ 根目录、或手动解压多一层，setup.ps1 都会自动识别并搬到标准位置。
 
