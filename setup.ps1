@@ -131,10 +131,10 @@ if ($CheckOnly) {
     Write-Ok ("ComfyUI 资产：{0}" -f ($(if ($b) { $b.name } else { '未找到' })))
   } catch { Write-Warn2 ("GitHub API 不可用：" + $_.Exception.Message) }
   Write-Host "`n   下载源优先级："
-  Write-Host ("   Node     : {0}" -f (Get-UrlCandidates $sources.node.urls)[0])
-  $lc = Get-UrlCandidates @($sources.llama.fallbackUrls)
+  Write-Host ("   Node     : {0}" -f @(Get-UrlCandidates $sources.node.urls)[0])
+  $lc = @(Get-UrlCandidates @($sources.llama.fallbackUrls))
   Write-Host ("   llama.cpp: {0}" -f $lc[0])
-  $cc = Get-UrlCandidates @($sources.comfyui.fallbackUrls)
+  $cc = @(Get-UrlCandidates @($sources.comfyui.fallbackUrls))
   Write-Host ("   ComfyUI  : {0}" -f $cc[0])
   Write-Host ("   7zr      : {0}" -f $(if (Test-Path $sources.sevenZip.local) { "仓库自带 $($sources.sevenZip.local)" } else { '需下载' }))
   return
