@@ -10,6 +10,8 @@ $ErrorActionPreference = 'Stop'
 # 让 Windows PowerShell 5.1 正确输出/读取 UTF-8（否则中文会乱码，JSON 解析也会失败）
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 $OutputEncoding = [Text.Encoding]::UTF8
+# GitHub API 要求 TLS 1.2+；PowerShell 5.1 默认可能还是 TLS 1.0/1.1
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
@@ -22,13 +24,7 @@ function Write-Warn2($msg) { Write-Host "   !   $msg" -ForegroundColor Yellow }
 $raw = Get-Content (Join-Path $root 'sources.json') -Raw -Encoding UTF8
 $sources = ($raw -replace "^[\uFEFF]", '') | ConvertFrom-Json
 
-if ($CheckOnly) {
-  Write-Step '配置检查（-CheckOnly）'
-  Write-Ok ("sources.json 解析成功：{0} 个模型" -f $sources.models.Count)
-  foreach ($m in $sources.models) { Write-Host ("   - {0}  {1} GB" -f $m.name, $m.sizeGB) }
-  Write-Ok ("LoRA：{0}" -f ($(if ($sources.lora.local) { $sources.lora.local } else { '未配置' })))
-  return
-}
+
 
 function Download-File($url, $dest) {
   $dir = Split-Path -Parent $dest
@@ -47,13 +43,49 @@ function Download-File($url, $dest) {
 }
 
 function Get-ReleaseAsset($repo, $pattern) {
-  $headers = @{ 'User-Agent' = 'image-studio-setup' }
-  $rels = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=10" -Headers $headers
+  $api = "https://api.github.com/repos/$repo/releases?per_page=10"
+  $json = $null
+  # 优先用 curl.exe 查 API：PS 5.1 默认 TLS 1.0/1.1 会被 GitHub 拒绝（"基础连接已经关闭"）
+  $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+  if ($curl) {
+    $tmp = Join-Path $env:TEMP ("ghrel_" + [Guid]::NewGuid().ToString('N') + ".json")
+    $curlArgs = @('-sL', '--fail', '--retry', '3', '--retry-delay', '2', '-H', 'User-Agent: image-studio-setup', '-o', $tmp, $api)
+    $proxy = $env:HTTPS_PROXY; if (-not $proxy) { $proxy = $env:HTTP_PROXY }
+    if ($proxy) { $curlArgs = @('-x', $proxy) + $curlArgs }
+    & $curl.Source @curlArgs
+    if ($LASTEXITCODE -eq 0 -and (Test-Path $tmp)) {
+      $json = Get-Content $tmp -Raw -Encoding UTF8
+      Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+  }
+  if (-not $json) {
+    $headers = @{ 'User-Agent' = 'image-studio-setup' }
+    try { $rels = Invoke-RestMethod $api -Headers $headers -TimeoutSec 30 }
+    catch { throw "无法访问 GitHub API（$repo）：$($_.Exception.Message)。请检查网络/代理后重试" }
+    $json = $rels | ConvertTo-Json -Depth 6
+  }
+  $rels = $json | ConvertFrom-Json
   foreach ($r in $rels) {
     $hit = $r.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
     if ($hit) { return $hit }
   }
   return $null
+}
+
+if ($CheckOnly) {
+  Write-Step '配置检查（-CheckOnly）'
+  Write-Ok ("sources.json 解析成功：{0} 个模型" -f $sources.models.Count)
+  foreach ($m in $sources.models) { Write-Host ("   - {0}  {1} GB" -f $m.name, $m.sizeGB) }
+  Write-Ok ("LoRA：{0}" -f ($(if ($sources.lora.local) { $sources.lora.local } else { '未配置' })))
+  try {
+    $a = Get-ReleaseAsset $sources.llama.repo $sources.llama.assetPattern
+    Write-Ok ("llama.cpp 资产：{0}" -f ($(if ($a) { $a.name } else { '未找到' })))
+  } catch { Write-Warn2 ("GitHub API 不可用：" + $_.Exception.Message) }
+  try {
+    $b = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
+    Write-Ok ("ComfyUI 资产：{0}" -f ($(if ($b) { $b.name } else { '未找到' })))
+  } catch { Write-Warn2 ("GitHub API 不可用：" + $_.Exception.Message) }
+  return
 }
 
 # ── 1. Node.js ────────────────────────────────────────────
