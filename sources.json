@@ -1,0 +1,45 @@
+{
+  "node": {
+    "url": "https://nodejs.org/dist/v24.22.0/node-v24.22.0-win-x64.zip",
+    "note": "便携版 Node.js，解压到 node/ 根目录"
+  },
+  "sevenZip": {
+    "url": "https://www.7-zip.org/a/7zr.exe",
+    "note": "只用来解压 ComfyUI 的 .7z"
+  },
+  "comfyui": {
+    "repo": "comfyanonymous/ComfyUI",
+    "assetPattern": "ComfyUI_windows_portable_nvidia\\.7z$",
+    "note": "官方便携包，约 2 GB；解压出 python_embeded + ComfyUI"
+  },
+  "llama": {
+    "repo": "ggml-org/llama.cpp",
+    "assetPattern": "bin-win-cuda.*x64\\.zip$",
+    "note": "llama.cpp Windows CUDA 构建（无 N 卡也能用 CPU 跑）"
+  },
+  "models": [
+    {
+      "name": "WAI Illustrious SDXL",
+      "url": "https://hf-mirror.com/LyliaEngine/waiIllustriousSDXL_v170/resolve/main/waiIllustriousSDXL_v170.safetensors",
+      "dest": "ComfyUI/ComfyUI/models/checkpoints/waiIllustriousSDXL_v170.safetensors",
+      "sizeGB": 6.46
+    },
+    {
+      "name": "NoobAI XL v-pred 1.0",
+      "url": "https://hf-mirror.com/Laxhar/noobai-XL-Vpred-1.0/resolve/main/NoobAI-XL-Vpred-v1.0.safetensors",
+      "dest": "ComfyUI/ComfyUI/models/checkpoints/NoobAI-XL-Vpred-v1.0.safetensors",
+      "sizeGB": 6.62
+    },
+    {
+      "name": "Qwen3-8B Q5_K_M（翻译用）",
+      "url": "https://hf-mirror.com/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q5_K_M.gguf",
+      "dest": "models/llm/Qwen3-8B-Q5_K_M.gguf",
+      "sizeGB": 5.45
+    }
+  ],
+  "lora": {
+    "url": "",
+    "dest": "ComfyUI/ComfyUI/models/loras/Kohana_1_nai-000026.safetensors",
+    "note": "留空则跳过；把 LoRA 自行放进 models/loras 即可"
+  }
+}

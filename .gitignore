@@ -1,0 +1,16 @@
+# 运行时与模型（由 setup.ps1 下载，不入库）
+node/
+bin/
+ComfyUI/
+models/
+
+# 运行期状态
+state/
+*.log
+*.part
+
+# 系统
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

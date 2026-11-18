@@ -1,0 +1,113 @@
+{
+  "image": {
+    "enabled": true,
+    "translate": {
+      "baseURL": "http://127.0.0.1:8081/v1",
+      "apiKey": "sk-local",
+      "model": "qwen3-8b-heretic",
+      "timeoutMs": 25000,
+      "maxTokens": 300,
+      "temperature": 0.2,
+      "thinking": false,
+      "cacheFile": "state/tag-cache.jsonl",
+      "useDictionary": true,
+      "autoWeight": true,
+      "dictionaryPath": "server/tag-dictionary/hf_general.csv",
+      "maxTermHints": 8,
+      "tagOverrides": {
+        "翻白眼": "rolling eyes",
+        "白眼": "rolling eyes",
+        "女上位": "cowgirl position",
+        "逆女上位": "reverse cowgirl position",
+        "反向女上位": "reverse cowgirl position"
+      },
+      "hintBlacklist": [
+        "画面",
+        "感觉",
+        "效果",
+        "程度",
+        "内容",
+        "露出",
+        "抬头",
+        "低着"
+      ],
+      "useCache": true
+    },
+    "llm": {
+      "exe": "bin/llama-server.exe",
+      "modelPath": "models/llm/Qwen3-8B-Q5_K_M.gguf",
+      "cudaPath": "",
+      "port": 8081,
+      "ctxSize": 8192,
+      "gpuLayers": 99,
+      "apiKey": "sk-local",
+      "startTimeoutMs": 120000,
+      "minFreeMiB": 4000
+    },
+    "defaultLora": "",
+    "defaultLoraStr": 0.9,
+    "defaultWidth": 1360,
+    "defaultHeight": 768,
+    "hiresScale": 1.5,
+    "hiresMode": "pixel",
+    "hiresUpscaleModel": "4x-UltraSharp.pth",
+    "refineDenoise": 0.4,
+    "refineSteps": 26,
+    "maxPixels": 1.4,
+    "handLora": "",
+    "handLoraStr": 0.7,
+    "handLoraDirect": false,
+    "directWidth": 1360,
+    "directHeight": 768,
+    "defaultModel": "wai",
+    "models": [
+      {
+        "key": "wai",
+        "name": "WAI Illustrious（当前主力）",
+        "file": "waiIllustriousSDXL_v170.safetensors",
+        "family": "illustrious",
+        "defaultCharacter": "nene",
+        "sampler": "dpmpp_2m",
+        "scheduler": "karras",
+        "steps": 26,
+        "cfg": 5.2,
+        "qualityTags": "",
+        "negative": "(bird:1.5), (birds:1.5), (bird wing:1.5), (parrot:1.4), (blue bird:1.4), (kingfisher:1.4), avian, flying bird, feathers, low quality, worst quality, normal quality, lowres, pixelated, blurry, bad anatomy, (bad hands:1.5), bad feet, missing fingers, (extra fingers:1.5), (mutated hands:1.2), poorly drawn hands, poorly drawn face, mutation, deformed, ugly, bad proportions, extra limbs, malformed limbs, fused fingers, long neck, cross-eyed, mutated, bad body, unnatural body, long body, duplicate, morbid, mutilated, out of frame, disfigured, gross proportions, missing arms, missing legs, extra arms, extra legs, cloned face, username, watermark, signature, text, censored, mosaic censoring, bar censor"
+      },
+      {
+        "key": "noobai",
+        "name": "NoobAI XL v-pred 1.0",
+        "file": "NoobAI-XL-Vpred-v1.0.safetensors",
+        "family": "noobai-vpred",
+        "sampler": "euler",
+        "scheduler": "normal",
+        "steps": 28,
+        "cfg": 5.2,
+        "qualityTags": "masterpiece, best quality, newest, absurdres, highres",
+        "negative": "worst quality, old, early, low quality, lowres, signature, username, logo, bad hands, mutated hands, mammal, anthro, furry, ambiguous form, feral, semi-anthro, censored, mosaic censoring, bar censor, letterboxed, black borders, black bars, border, white border, pillarboxed, frame, blank space, extra borders",
+        "note": "v-pred：必须 euler + normal；负面词不能用带权重的鸟类压制链（会压出黑块）"
+      }
+    ],
+    "forwardBatch": true,
+    "timeoutMinMs": 600000,
+    "timeoutBaseMs": 180000,
+    "timeoutPerImageMs": 45000,
+    "timeoutPerHiresMs": 120000,
+    "maxBatch": 2,
+    "cooldownMs": 15000,
+    "globalCooldownMs": 15000,
+    "defaultCount": 1,
+    "userModelDir": "./models/user",
+    "userLoraDir": "./models/user/loras",
+    "userPromptDir": "./models/user/prompts",
+    "outputCleanup": {
+      "afterDownload": true,
+      "maxAgeDays": 7,
+      "maxFiles": 200
+    }
+  },
+  "server": {
+    "port": 34567,
+    "host": "127.0.0.1"
+  }
+}
