@@ -24,6 +24,24 @@ function Write-Warn2($msg) { Write-Host "   !   $msg" -ForegroundColor Yellow }
 $raw = Get-Content (Join-Path $root 'sources.json') -Raw -Encoding UTF8
 $sources = ($raw -replace "^[\uFEFF]", '') | ConvertFrom-Json
 
+# 把目录搬到目标位置；目标已存在时合并，避免 Move-Item 把整个目录嵌套进去
+function Move-Into($srcDir, $destDir) {
+  if (-not (Test-Path $destDir)) {
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destDir) -Force | Out-Null
+    Move-Item $srcDir $destDir -Force
+    return
+  }
+  foreach ($item in Get-ChildItem $srcDir -Force) {
+    $target = Join-Path $destDir $item.Name
+    if (Test-Path $target) {
+      if ($item.PSIsContainer) { Move-Into $item.FullName $target }
+      else { Copy-Item $item.FullName $target -Force }
+    } else {
+      Move-Item $item.FullName $target -Force
+    }
+  }
+  Remove-Item $srcDir -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 
 function Download-File($url, $dest) {
@@ -35,8 +53,14 @@ function Download-File($url, $dest) {
   }
   Write-Host "   下载 $url"
   $tmp = "$dest.part"
-  & curl.exe -L --fail --retry 3 --retry-delay 2 -o $tmp $url
-  if ($LASTEXITCODE -ne 0) { throw "下载失败：$url" }
+  # -C - 断点续传：2 GB 的 ComfyUI 在国内直连很慢，中断后重跑能接着下
+  $curlArgs = @('-L', '--fail', '--retry', '5', '--retry-delay', '3', '-C', '-', '-o', $tmp, '--progress-bar', $url)
+  $proxy = $env:HTTPS_PROXY; if (-not $proxy) { $proxy = $env:HTTP_PROXY }
+  if ($proxy) { $curlArgs = @('-x', $proxy) + $curlArgs }
+  & curl.exe @curlArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "下载失败（$url）。已下载部分保存在 $tmp，重跑本脚本会续传；若太慢请开启代理后设置 `$env:HTTPS_PROXY 再运行"
+  }
   Move-Item $tmp $dest -Force
   $mb = [math]::Round((Get-Item $dest).Length / 1MB, 1)
   Write-Ok "完成（$mb MB）：$dest"
@@ -91,55 +115,90 @@ if ($CheckOnly) {
 # ── 1. Node.js ────────────────────────────────────────────
 Write-Step '1/5 Node.js 运行时'
 if (Test-Path 'node\node.exe') {
-  Write-Ok 'node\node.exe 已存在'
+  Write-Ok 'node\node.exe 已存在，跳过'
 } else {
-  Download-File $sources.node.url 'node\node.zip'
+  $zip = 'node\node.zip'
+  if (Test-Path $zip) { Write-Ok "已有安装包，跳过下载：$zip" } else { Download-File $sources.node.url $zip }
   $tmp = 'node\_unzip'
   if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-  Expand-Archive 'node\node.zip' -DestinationPath $tmp -Force
+  Expand-Archive $zip -DestinationPath $tmp -Force
   $sub = Get-ChildItem $tmp -Directory | Select-Object -First 1
-  Copy-Item (Join-Path $sub.FullName '*') 'node\' -Recurse -Force
-  Remove-Item $tmp, 'node\node.zip' -Recurse -Force
+  if ($sub) { Copy-Item (Join-Path $sub.FullName '*') 'node\' -Recurse -Force } else { Copy-Item "$tmp\*" 'node\' -Recurse -Force }
+  Remove-Item $tmp -Recurse -Force
+  if (-not (Test-Path 'node\node.exe')) { throw 'node.exe 解压后仍不存在，请删除 node/ 后重试' }
+  Remove-Item $zip -Force -ErrorAction SilentlyContinue
   Write-Ok "node.exe 就位（$(& '.\node\node.exe' --version)）"
 }
 
 # ── 2. llama.cpp 二进制 ───────────────────────────────────
 Write-Step '2/5 llama-server（翻译实例）'
 if (Test-Path 'bin\llama-server.exe') {
-  Write-Ok 'bin\llama-server.exe 已存在'
+  Write-Ok 'bin\llama-server.exe 已存在，跳过'
 } else {
-  $asset = Get-ReleaseAsset $sources.llama.repo $sources.llama.assetPattern
-  if (-not $asset) { throw '找不到 llama.cpp 的 Windows 构建，请手动下载后放到 bin/' }
-  $zip = "bin\_llama.zip"
-  Download-File $asset.browser_download_url $zip
+  $zip = 'bin\_llama.zip'
+  if (-not (Test-Path $zip)) {
+    $asset = Get-ReleaseAsset $sources.llama.repo $sources.llama.assetPattern
+    if (-not $asset) { throw '找不到 llama.cpp 的 Windows 构建，请手动下载后放到 bin/' }
+    Download-File $asset.browser_download_url $zip
+  } else { Write-Ok "已有安装包，跳过下载：$zip" }
   if (Test-Path 'bin\_unzip') { Remove-Item 'bin\_unzip' -Recurse -Force }
   Expand-Archive $zip -DestinationPath 'bin\_unzip' -Force
   Copy-Item 'bin\_unzip\*' 'bin\' -Recurse -Force
-  Remove-Item 'bin\_unzip', $zip -Recurse -Force
+  Remove-Item 'bin\_unzip' -Recurse -Force
+  if (-not (Test-Path 'bin\llama-server.exe')) { throw 'llama-server.exe 解压后仍不存在，请检查 bin\_llama.zip 内容' }
+  Remove-Item $zip -Force -ErrorAction SilentlyContinue
   Write-Ok 'llama-server 就位'
 }
 
 # ── 3. ComfyUI 便携版 ─────────────────────────────────────
 Write-Step '3/5 ComfyUI 便携版（约 2 GB，最慢的一步）'
-if (Test-Path 'ComfyUI\python_embeded\python.exe') {
-  Write-Ok 'ComfyUI 已存在'
+# 递归查找：兼容用户手动解压后多一层目录的情况（如 ComfyUI\ComfyUI_windows_portable\ComfyUI\main.py）
+$mainFile = Get-ChildItem 'ComfyUI' -Recurse -Depth 3 -Filter 'main.py' -ErrorAction SilentlyContinue |
+  Where-Object { $_.Directory.Name -eq 'ComfyUI' } | Select-Object -First 1
+$pyFile = Get-ChildItem 'ComfyUI' -Recurse -Depth 3 -Filter 'python.exe' -ErrorAction SilentlyContinue |
+  Where-Object { $_.Directory.Name -eq 'python_embeded' } | Select-Object -First 1
+
+# 位置不标准就搬到约定的 ComfyUI\ComfyUI 与 ComfyUI\python_embeded
+if ($mainFile -and $mainFile.Directory.FullName -ne (Join-Path $root 'ComfyUI\ComfyUI') -and $mainFile.Directory.FullName -ne (Join-Path $root 'ComfyUI')) {
+  Write-Warn2 "ComfyUI 代码在 $($mainFile.Directory.FullName)，搬运到标准位置"
+  Move-Into $mainFile.Directory.FullName (Join-Path $root 'ComfyUI\ComfyUI')
+  $mainFile = Get-Item 'ComfyUI\ComfyUI\main.py' -ErrorAction SilentlyContinue
+}
+if ($pyFile -and $pyFile.Directory.FullName -ne (Join-Path $root 'ComfyUI\python_embeded') -and $pyFile.Directory.FullName -ne (Join-Path $root 'ComfyUI')) {
+  Write-Warn2 "python_embeded 在 $($pyFile.Directory.FullName)，搬运到标准位置"
+  Move-Into $pyFile.Directory.FullName (Join-Path $root 'ComfyUI\python_embeded')
+  $pyFile = Get-Item 'ComfyUI\python_embeded\python.exe' -ErrorAction SilentlyContinue
+}
+
+$mainOk = [bool]$mainFile
+$pyOk = [bool]$pyFile
+if ($mainOk -and $pyOk) {
+  Write-Ok 'ComfyUI 已存在，跳过'
 } else {
+  if ($mainOk -and -not $pyOk) { Write-Warn2 'ComfyUI 代码在，但缺 python_embeded，继续安装' }
+  if ($pyOk -and -not $mainOk) { Write-Warn2 'python_embeded 在，但缺 ComfyUI\main.py，继续安装' }
   $sevenZip = 'ComfyUI\_7zr.exe'
-  Download-File $sources.sevenZip.url $sevenZip
-  $asset = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
-  if (-not $asset) { throw '找不到 ComfyUI 便携包，请手动解压到 ComfyUI/' }
+  if (Test-Path $sevenZip) { Write-Ok '已有 7zr.exe，跳过下载' } else { Download-File $sources.sevenZip.url $sevenZip }
   $arch = 'ComfyUI\_portable.7z'
-  Download-File $asset.browser_download_url $arch
+  if (-not (Test-Path $arch)) {
+    $asset = Get-ReleaseAsset $sources.comfyui.repo $sources.comfyui.assetPattern
+    if (-not $asset) { throw '找不到 ComfyUI 便携包，请手动解压到 ComfyUI/' }
+    Download-File $asset.browser_download_url $arch
+  } else { Write-Ok "已有安装包，跳过下载（约 2 GB）：$arch" }
   Write-Host '   解压中（需要几分钟）…'
   $tmp = 'ComfyUI\_extract'
   if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
   & $sevenZip x $arch "-o$tmp" -y | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw '7z 解压失败' }
+  if ($LASTEXITCODE -ne 0) { throw '7z 解压失败（安装包可能损坏，删掉 ComfyUI\_portable.7z 重试）' }
   foreach ($d in @('ComfyUI', 'python_embeded', 'update', 'advanced')) {
     $from = Join-Path $tmp $d
-    if (Test-Path $from) { Move-Item $from (Join-Path 'ComfyUI' $d) -Force }
+    if (Test-Path $from) { Copy-Item $from (Join-Path 'ComfyUI' $d) -Recurse -Force }
   }
-  Remove-Item $tmp, $arch, $sevenZip -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  $mainOk2 = (Test-Path 'ComfyUI\ComfyUI\main.py') -or (Test-Path 'ComfyUI\main.py')
+  $pyOk2 = (Test-Path 'ComfyUI\python_embeded\python.exe') -or (Test-Path 'ComfyUI\ComfyUI\python_embeded\python.exe')
+  if (-not ($mainOk2 -and $pyOk2)) { throw ('ComfyUI 解压后仍不完整，请检查 ComfyUI 目录：' + ((Get-ChildItem 'ComfyUI' | Select-Object -ExpandProperty Name) -join ', ')) }
+  Remove-Item $arch, $sevenZip -Recurse -Force -ErrorAction SilentlyContinue
   Write-Ok 'ComfyUI 就位'
 }
 
