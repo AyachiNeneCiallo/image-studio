@@ -104,6 +104,9 @@
       "afterDownload": true,
       "maxAgeDays": 7,
       "maxFiles": 200
+    },
+    "comfyui": {
+      "idleStopSeconds": 120
     }
   },
   "server": {
