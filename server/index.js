@@ -255,13 +255,13 @@ function releaseLlm(reason = '') {
     .catch((e) => console.log(`[llm] 释放翻译实例失败：${e?.message || e}`));
 }
 
-// ── 检测 ComfyUI 进程 ──
+// ── 检测 ComfyUI 进程（python.exe / pythonw.exe 且命令行带 ComfyUI\...\main.py）──
 function findComfyUiProcess() {
   try {
-    const out = execFileSync('tasklist', ['/FI', 'IMAGENAME eq pythonw.exe', '/FO', 'CSV', '/NH'], {
-      encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore']
-    });
-    return out.includes('pythonw.exe');
+    const out = execFileSync('powershell', ['-NoProfile', '-Command',
+      "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and $_.CommandLine -like '*ComfyUI*main.py*' } | Select-Object -First 1 -ExpandProperty ProcessId"
+    ], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] });
+    return String(out).trim() !== '';
   } catch {
     return false;
   }
@@ -306,11 +306,68 @@ async function startComfyUi() {
   throw new Error('ComfyUI 300 秒内未就绪');
 }
 
-async function stopComfyUi() {
+/**
+ * 停止 ComfyUI 进程，释放显存（翻译前 / 空闲超时）。
+ * 优先杀我们自己 spawn 的子进程；子进程已丢失但端口仍占用时，按命令行匹配 python+main.py 兜底。
+ * 返回是否真的关掉了东西。
+ */
+async function stopComfyUi(reason = '') {
+  let killed = false;
   if (comfyProc) {
+    const pid = comfyProc.pid;
     try { comfyProc.kill(); } catch {}
-    comfyProc = null;
+    // 等进程退出，最多 10 秒；否则强杀
+    for (let i = 0; i < 20; i++) {
+      await sleep(500);
+      if (!comfyProc) break;
+    }
+    if (comfyProc) {
+      try { execFileSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore', timeout: 5000 }); } catch {}
+      comfyProc = null;
+    }
+    killed = true;
+  } else if (findComfyUiProcess()) {
+    // 不是我们起的，但显存确实被占着：只杀命令行里带我们 ComfyUI 路径的 python
+    try {
+      execFileSync('powershell', ['-NoProfile', '-Command',
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*ComfyUI*main.py*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+      ], { stdio: 'ignore', timeout: 10000 });
+      killed = true;
+    } catch {}
   }
+  if (killed) console.log(`[comfyui] 已停止${reason ? '（' + reason + '）' : ''}，显存已释放`);
+  cancelComfyIdleStop();
+  return killed;
+}
+
+let comfyIdleTimer = null;
+
+function cancelComfyIdleStop() {
+  if (comfyIdleTimer) {
+    clearTimeout(comfyIdleTimer);
+    comfyIdleTimer = null;
+  }
+}
+
+/** 生图结束后安排一次「空闲关闭」：默认 120 秒后关掉 ComfyUI 释放显存。 */
+function scheduleComfyIdleStop(reason = '') {
+  const sec = Number(
+    process.env.COMFYUI_IDLE_STOP_SECONDS ?? cfg.image?.comfyui?.idleStopSeconds ?? 120
+  );
+  cancelComfyIdleStop();
+  if (!(sec > 0)) return;
+  comfyIdleTimer = setTimeout(async () => {
+    comfyIdleTimer = null;
+    try {
+      const busy = await checkComfyUI({ timeoutMs: 800 }).catch(() => false);
+      if (!busy) return;
+      await stopComfyUi(reason || `空闲 ${sec}s`);
+    } catch (e) {
+      console.log(`[comfyui] 空闲关闭失败：${e?.message || e}`);
+    }
+  }, sec * 1000);
+  if (comfyIdleTimer.unref) comfyIdleTimer.unref();
+  console.log(`[comfyui] 已安排空闲关闭：${sec}s 后（${reason || '生图完成'}）`);
 }
 
 // ── API 路由 ──
@@ -354,6 +411,8 @@ async function handleRequest(req, res) {
       const tr = await initTranslator();
       // 翻译需要 8081 的 llama-server：词典/缓存命中时不需要，但预检查一遍更稳
       if (tr.needsLlm(text, { autoWeight })) {
+        // 翻译前先关掉 ComfyUI，把显存让出来（生图后它可能还驻留着）
+        await stopComfyUi('翻译前释放显存');
         await ensureLlm();
       }
       const result = await tr.translate(text, { autoWeight });
@@ -441,6 +500,8 @@ async function handleRequest(req, res) {
 
       // 生图前先释放翻译实例占用的显存（8 GB 显存卡上两者不能同时驻留）
       await stopLlm();
+      // 取消待执行的空闲关闭，避免刚启动又被关
+      cancelComfyIdleStop();
       // 确保 ComfyUI 运行
       await startComfyUi();
 
@@ -506,8 +567,12 @@ async function handleRequest(req, res) {
           mime: 'image/png'
         }))
       });
+      // 生图完成：安排空闲关闭，把显存让给下一次翻译
+      scheduleComfyIdleStop('生图完成');
     } catch (e) {
       jsonResponse(res, 500, { error: e.message || '生图失败', code: e.code });
+      // 失败也安排关闭，避免 ComfyUI 占着显存不放
+      scheduleComfyIdleStop('生图失败');
     }
     return;
   }
